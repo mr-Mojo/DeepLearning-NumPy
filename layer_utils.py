@@ -49,6 +49,9 @@ class AbstractActivationLayer(ABC):
 
 class SoftmaxLayer(AbstractActivationLayer): 
     
+    def __init__(self): 
+        self.invalues = None 
+    
     #numerically stable version: 
     def softmax(self, x): 
         shiftx = x - np.max(x)
@@ -56,10 +59,9 @@ class SoftmaxLayer(AbstractActivationLayer):
         return exps/np.sum(exps)
     
     def forward(self, inTensors: list, outTensors: list): 
-        self.invalues = []
-        for t in inTensors: 
-            ten = Tensor(t.elements, t.shape)
-            self.invalues.append(ten)
+        if self.invalues==None: 
+            self.invalues = [t.elements for t in inTensors]
+
         for i in range(len(inTensors)): 
             x = np.reshape(inTensors[i].elements,inTensors[i].shape)
             outTensors[i].elements = self.softmax(x)
@@ -87,7 +89,7 @@ class SoftmaxLayer(AbstractActivationLayer):
 #                 
 #             outTensors[k].deltas = inTensors[k].deltas @ jacobian
 # =============================================================================
-            outTensors[k].deltas = inTensors[k].deltas @ self.softmax_derivative(self.invalues[k].elements) 
+            outTensors[k].deltas = inTensors[k].deltas @ self.softmax_derivative(self.invalues[k]) 
             
     def __str__(self):
         return "Softmax Activation Layer"
@@ -149,19 +151,18 @@ class TanhLayer(AbstractActivationLayer):
     
 class SigmoidLayer(AbstractActivationLayer): 
     
+    def __init__(self): 
+        self.invalues = None 
+    
     def sigm(self,x): 
         x = np.clip(x,-500, 500)        # to avoid under- or overflow
         return 1.0/(1.0+np.exp(-x))
     
     def forward(self, inTensors: list, outTensors: list): 
-        self.invalues = []
-        for t in inTensors: self.invalues.append(t.elements)
-            #tensor = Tensor(t.elements, t.shape) 
-            #self.invalues.append(tensor)
+        if self.invalues==None: 
+            self.invalues = [t.elements for t in inTensors]
         for i in range(len(inTensors)): 
-            #x = np.reshape(inTensors[i].elements,inTensors[i].shape)
-            #y = self.sigm(x)
-            outTensors[i].elements = self.sigm(inTensors[i].elements) #Tensor(y,np.shape(y))
+            outTensors[i].elements = self.sigm(inTensors[i].elements) 
     
     def backward(self, outTensors: list, inTensors: list): 
         for i in range(len(inTensors)): 
@@ -200,10 +201,12 @@ class FullyConnectedLayer(AbstractLayer):
         self.delta_weights = np.zeros(weights.shape)
         self.delta_bias = np.zeros(bias.shape)
         self.learning_rate = 0.5
+        self.invalues_fw = None 
         
     #y = X*W + b 
     def forward(self, inTensors: list, outTensors: list): 
-        self.invalues_fw = [t for t in inTensors]   #copy routine is legitimate
+        if self.invalues_fw == None: 
+            self.invalues_fw = [t for t in inTensors]   #copy routine is legitimate
         for i in range(len(inTensors)):
             x = np.reshape(inTensors[i].elements,inTensors[i].shape)
             y =  x @ self.weights + self.bias

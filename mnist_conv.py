@@ -1,6 +1,5 @@
 import numpy as np 
 import layer_utils
-import tensor_utils 
 import network_utils
 
 from layer_utils import Convolution2D_Layer, FullyConnectedLayer, SoftmaxLayer, CrossEntropy_LossLayer, Flattening_Layer
@@ -50,13 +49,13 @@ if __name__ == "__main__":
     testTarget= []
 
 
-    for t in x_train[2:20]: 
+    for t in x_train[2:50]: 
         img = t.reshape(1,28,28)
         ten = layer_utils.Tensor(img,img.shape)
         inputList.append(ten)
     
     targetList = [] 
-    for t in y_train[2:20]: 
+    for t in y_train[2:50]: 
         tar = np.zeros((10,1))
         tar[t] = 1 
         ten = layer_utils.Tensor(tar.flatten(), (10,))
@@ -78,7 +77,9 @@ if __name__ == "__main__":
     
     ## --------------------------------------- train the nn -----------------------------------------------------
 
-    nn = trainer.optimize(nn,inputList,targetList,epochs=100, lr=0.5)
+    #very sensitive to learning_rate changes, 0.05 is a good value for n = 20, 0.001 for n = 50 but takes >30 epochs 
+    
+    nn = trainer.optimize(nn,inputList,targetList,epochs=100, lr=0.001)
 
 
     
@@ -105,12 +106,15 @@ if __name__ == "__main__":
                 
     if test_network: 
         count = 0 
-        res = nn.forward(testInput, testTarget)
+        stopper = 200 
+        res = nn.forward(testInput[0:stopper], testTarget[0:stopper])
+        print(res[0])
+        print(testTarget[0])
         for i in range(len(res)): 
             if np.argmax(res[i].elements) == np.argmax(testTarget[i]):
                 count += 1 
         
-        print("\n ------------------------------------------- \n\nAccuracy on the test set: {0:.2f}%".format(count*100/len(testInput)))
+        print("\n ------------------------------------------- \n\nAccuracy on the test set: {0:.2f}%".format(count*100/len(testInput[0:stopper])))
          
 
 

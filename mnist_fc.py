@@ -81,7 +81,8 @@ if __name__ == '__main__':
     
     
     nn = trainer.optimize(nn,inputList,targetList,epochs=200, lr=0.1)
-    
+    #when using arch3, lr=0.1 
+    #when using relu with n = 2000 use lr = 0.001 
     
     
     show_results = True
