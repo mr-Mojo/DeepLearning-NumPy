@@ -1,6 +1,5 @@
 import numpy as np 
 import layer_utils
-import tensor_utils 
 import network_utils
 
 from layer_utils import Convolution2D_Layer, FullyConnectedLayer, SoftmaxLayer, CrossEntropy_LossLayer, Flattening_Layer
@@ -78,7 +77,8 @@ if __name__ == "__main__":
     
     ## --------------------------------------- train the nn -----------------------------------------------------
 
-    nn = trainer.optimize(nn,inputList,targetList,epochs=100, lr=0.5)
+    #very sensitive to learning_rate changes, 0.05 is a good value 
+    nn = trainer.optimize(nn,inputList,targetList,epochs=100, lr=0.05)
 
 
     
@@ -105,12 +105,13 @@ if __name__ == "__main__":
                 
     if test_network: 
         count = 0 
-        res = nn.forward(testInput, testTarget)
+        stopper = 200 
+        res = nn.forward(testInput[0:stopper], testTarget[0:stopper])
         for i in range(len(res)): 
             if np.argmax(res[i].elements) == np.argmax(testTarget[i]):
                 count += 1 
         
-        print("\n ------------------------------------------- \n\nAccuracy on the test set: {0:.2f}%".format(count*100/len(testInput)))
+        print("\n ------------------------------------------- \n\nAccuracy on the test set: {0:.2f}%".format(count*100/len(testInput[0:stopper])))
          
 
 
