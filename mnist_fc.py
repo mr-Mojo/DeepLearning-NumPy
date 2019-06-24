@@ -39,6 +39,7 @@ if __name__ == '__main__':
     architecture2 = [dense1, activ1, dense2, dense3, lossfc]
     
     
+    
     layers = architecture2
     
     ## --------------------------------------- init network -----------------------------------------------------
