@@ -27,20 +27,19 @@ class NeuronalNetwork():
             print("ERROR - only numpyArrays can be handled by input layer")
             return
         
-        if self.hasInputLayer:
-            inTensors = self.inputLayer.forward(data)
-        else: 
-            inTensors = data.copy()
         
-        for layer in self.layers[:-1]:                  #for every layer but the last: 
-            layer.forward(inTensors, inTensors)
+        #input layer: 
+        if self.hasInputLayer: inTensors = self.inputLayer.forward(data)
+        else: inTensors = data.copy()
+        
+        #all layers but the last: 
+        for layer in self.layers[:-1]: layer.forward(inTensors, inTensors)
+        
         
         loss_layer = self.layers[-1] 
-        outTensors = []
-        for t in inTensors:
-            tensor = tensor_utils.Tensor(t.elements, t.shape)
-            outTensors.append(tensor)
+        outTensors = inTensors.copy()
         
+        #loss_layer 
         loss_layer.forward(inTensors, outTensors, targets)
         
         return outTensors  
@@ -74,14 +73,13 @@ class SGDTrainer():
         self.batchsize = batchsize
         self.shuffle = shuffle
         self.update_mechanism = update_mechanism    # currently only vanilla GD is implemented 
-        #TODO: shuffle not implemented yet 
         
         
     def optimize(self, network : NeuronalNetwork, data: list, labels: list, epochs=50, lr=0.5, early_stopping=True):
         self.learning_rate = lr 
         early_stopping_treshold = 0.00000005
         
-        
+        #github test
         # ------------------ sanity checks ------------------------------
         if not isinstance(labels[0], tensor_utils.Tensor): 
             targetTensors = network.inputLayer.forward(labels)
@@ -128,22 +126,11 @@ class SGDTrainer():
             
             network.backprop(res,targetTensors)
             
-            for l in network.layers: 
-                if isinstance(l, layer_utils.FullyConnectedLayer): 
-                    pass
-                    #l.weights -= self.learning_rate * l.delta_weights
-                    #l.bias -= self.learning_rate * l.delta_bias
-            
+           
             if early_stopping: 
                 if loss < early_stopping_treshold:
                     return network
-            
-# =============================================================================
-            #already called after backprop 
-#             for i in range(len(network.layers)-1,-1,-1):
-#                 if isinstance(network.layers[i], layer_utils.FullyConnectedLayer): 
-#                     network.layers[i].param_update(self.learningrate)
-# =============================================================================
+         
             
 
         return network  #return ununsed, just for debug 
