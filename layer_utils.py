@@ -5,6 +5,7 @@ import sys
 
 #backprop in activation layer = derivative(input) * error of output
 
+DEBUG = False
 
 #inputlayer transforms list of rawdata into tensors 
 class InputLayer(): 
@@ -64,9 +65,8 @@ class SoftmaxLayer(AbstractActivationLayer):
             outTensors[i].elements = self.softmax(x)
             
     def softmax_derivative(self,Q):
-        x=self.softmax(Q)
-        s=x.reshape(-1,1)
-        return (np.diagflat(s) - np.dot(s, s.T))
+        x=self.softmax(Q).reshape(-1,1)
+        return (np.diagflat(x) - np.dot(x, x.T))
         
     #does the same thing as the jacobian 
     ##outTensors[k].deltas = inTensors[k].deltas @ self.softmax_derivative(self.invalues[k].elements) 
@@ -155,22 +155,25 @@ class SigmoidLayer(AbstractActivationLayer):
     
     def forward(self, inTensors: list, outTensors: list): 
         self.invalues = []
-        for t in inTensors: 
-            tensor = Tensor(t.elements, t.shape) 
-            self.invalues.append(tensor)
+        for t in inTensors: self.invalues.append(t.elements)
+            #tensor = Tensor(t.elements, t.shape) 
+            #self.invalues.append(tensor)
         for i in range(len(inTensors)): 
-            x = np.reshape(inTensors[i].elements,inTensors[i].shape)
-            y = self.sigm(x)
-            outTensors[i] = Tensor(y,np.shape(y))
+            #x = np.reshape(inTensors[i].elements,inTensors[i].shape)
+            #y = self.sigm(x)
+            outTensors[i].elements = self.sigm(inTensors[i].elements) #Tensor(y,np.shape(y))
     
     def backward(self, outTensors: list, inTensors: list): 
         for i in range(len(inTensors)): 
-            outTensors[i].elements = np.ones(np.shape(self.invalues[0].elements))  # only helper for dimensions, elements not needed 
+#            outTensors[i].elements = np.ones(np.shape(self.invalues[0].elements))  # only helper for dimensions, elements not needed 
+            outTensors[i].elements = np.ones(np.shape(self.invalues[0]))  # only helper for dimensions, elements not needed  
             
-            t1 = (1-self.sigm(self.invalues[i].elements)) # this goes to zero! 
+            #t1 = (1-self.sigm(self.invalues[i].elements)) # this goes to zero! 
+            t1 = (1-self.sigm(self.invalues[i])) # this goes to zero! 
             for k in range(len(t1)): 
                 if t1[k]<0.00005: t1[k]=0.00005
-            t2 = self.sigm(self.invalues[i].elements)
+            #t2 = self.sigm(self.invalues[i].elements)
+            t2 = self.sigm(self.invalues[i])
             outTensors[i].deltas = (t1*t2)*inTensors[i].deltas
             
     def __str__(self): 
@@ -238,6 +241,8 @@ class FullyConnectedLayer(AbstractLayer):
 # ---------------------- < end fullyConnected layer > ----------------------    
     
     
+
+
 class Flattening_Layer(AbstractLayer): 
     
     def __init__(self) :
@@ -255,8 +260,8 @@ class Flattening_Layer(AbstractLayer):
     def backward(self, outTensors, inTensors): 
         #inTensors come from a FC-Layer and have shape e.g. (18,) but need (2,3,3)
         
-        for i in range(len(inTensors)):
-            inTensors[i].shape = self.inShapes[i]
+        for i in range(len(outTensors)):
+            outTensors[i].shape = self.inShapes[i]
     
     def param_update(self):
         pass
@@ -308,15 +313,12 @@ class Convolution2D_Layer(AbstractLayer) :
         #kernel_weights is (filter_count*filter_depth, x,y) np-array
         self.kernel_weights = [] 
         
-        #TODO: kernel weights not initialized right!, e.g. 5,5,1,2 fails 
         
         if weights is None and random_weights is True: 
             
             no_of_elements = self.filtersize_x*self.filtersize_y*self.filter_depth*self.filter_count
-            weights = np.random.normal(0,0.01,no_of_elements).reshape((self.filter_depth*self.filter_count, self.filtersize_x, self.filtersize_y))
+            weights = np.random.normal(0,0.001,no_of_elements).reshape((self.filter_depth*self.filter_count, self.filtersize_x, self.filtersize_y))
             self.kernel_weights = weights 
-            #number_of_elements = (self.filter_count*self.filter_depth) * (self.filter_count * self.filter_depth)        #TODO: is this first * right, or should it be + ? 
-            #self.kernel_weights = np.random.normal(0,0.01,size=number_of_elements).reshape((self.filter_depth*self.filter_count, self.filter_depth, self.filter_count))
             
             
         elif weights is None and random_weights is False: 
@@ -357,9 +359,14 @@ class Convolution2D_Layer(AbstractLayer) :
     #TODO -> make this ndimensional
     def flip_kernel(self): 
         
-        tmp = self.kernel_weights[2].copy()
-        self.kernel_weights[2] = self.kernel_weights[1]
-        self.kernel_weights[1] = tmp    
+        if self.input_shape[0] == 1: 
+            tmp=self.kernel_weights[1]
+            self.kernel_weights[1] = self.kernel_weights[0]
+            self.kernel_weights[0] = tmp
+        else: 
+            tmp = self.kernel_weights[2].copy()
+            self.kernel_weights[2] = self.kernel_weights[1]
+            self.kernel_weights[1] = tmp    
         
     
     #forward pass was tested and seems robust and correct
@@ -405,6 +412,8 @@ class Convolution2D_Layer(AbstractLayer) :
                 count += self.filter_depth      #TODO: this was 2, is it now really universally applicable? 
             
             stacked_arrays = np.stack(arrs)
+            stacked_arrays = np.clip(stacked_arrays,1e-7,1e7)   #TODO: clip also clips negative values 
+            
             outTensor = Tensor(stacked_arrays.flatten(), stacked_arrays.shape)
             outTensor.deltas = np.zeros((len(stacked_arrays.flatten())))
             outTensors[i] = outTensor
@@ -433,10 +442,14 @@ class Convolution2D_Layer(AbstractLayer) :
             deltas = inTensors[i].deltas        #some large array, like 12x1 (coming from a 3x4 conv. with [2,2,2,2] kernel)
             delta_shape = (inTensors[i].shape[1],inTensors[i].shape[2])
             
+            
             #map respective outputs to inputs, e.g. 18x1 becomes 2x (2x3) 
             respective_deltas = []          
             curr = 0
-            for l in range(1,self.filter_count+1): 
+            for l in range(1,self.filter_depth+1):
+                if self.filter_depth == 1: 
+                    respective_deltas.append(deltas.reshape(delta_shape))
+                    break
                 stopper = (int)(l*len(deltas)/(self.filter_count))
                 respective_deltas.append(deltas[curr:stopper].reshape(delta_shape))
                 curr = stopper
@@ -470,15 +483,18 @@ class Convolution2D_Layer(AbstractLayer) :
             
             #sum up the results 
             count = 0
-            for x in range(self.filter_count): 
+            for x in range(self.filter_depth): 
                 arrs.append(tmp[count] + tmp[count+1])
                 count += self.filter_count      #TODO: this was 2, is it now really universally applicable? 
             
             
             stacked = np.stack(arrs)
+            stacked = np.clip(stacked, 0.1e-5, 1e5)
             
             ten = Tensor(np.ones(len(stacked.flatten())), stacked.shape)         #just put ones to have dummy for dimension 
             ten.deltas = stacked.flatten()
+            if DEBUG: print("delta sum: {}".format(np.sum(ten.deltas)))
+            
             outTensors[i] = ten
             
             self.outvalues_bw.append(stacked)   #keep the deltas in cache for weight update
@@ -529,7 +545,9 @@ class Convolution2D_Layer(AbstractLayer) :
                     self.kernel_weights[count] += -self.learning_rate*delta_weights
                     count += 1 
                 
-                self.bias[k] += -self.learning_rate*np.sum(orig_input[k])
+                    self.bias[k] += -self.learning_rate*np.sum(corresp_deltas[k])
+                #self.bias[k] += -self.learning_rate * np.sum(delta_weights)
+            if DEBUG: print("bias: {}".format(np.sum(self.bias)))
             
 # =============================================================================
 #                     filter_update_1_1 = self.convolve_2d(orig_input[0], corresp_deltas[1], 0)
@@ -554,7 +572,8 @@ class Convolution2D_Layer(AbstractLayer) :
             
         s += '\n\n\n'
         return s 
-    
+
+
     
     
 # ---------------------- < start loss layers > ----------------------

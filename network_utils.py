@@ -42,6 +42,7 @@ class NeuronalNetwork():
             outTensors.append(tensor)
         
         loss_layer.forward(inTensors, outTensors, targets)
+        
         return outTensors  
 
     
