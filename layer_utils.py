@@ -65,9 +65,8 @@ class SoftmaxLayer(AbstractActivationLayer):
             outTensors[i].elements = self.softmax(x)
             
     def softmax_derivative(self,Q):
-        x=self.softmax(Q)
-        s=x.reshape(-1,1)
-        return (np.diagflat(s) - np.dot(s, s.T))
+        x=self.softmax(Q).reshape(-1,1)
+        return (np.diagflat(x) - np.dot(x, x.T))
         
     #does the same thing as the jacobian 
     ##outTensors[k].deltas = inTensors[k].deltas @ self.softmax_derivative(self.invalues[k].elements) 

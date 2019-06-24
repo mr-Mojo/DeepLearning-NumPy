@@ -39,8 +39,13 @@ if __name__ == '__main__':
     architecture2 = [dense1, activ1, dense2, dense3, lossfc]
     
     
+    a3_dense = layer_utils.FullyConnectedLayer(np.zeros((784,10)), np.zeros((10,)), (784,), (10,), random_weights=True)
+    a3_act = layer_utils.SoftmaxLayer()
+    a3_loss = layer_utils.CrossEntropy_LossLayer()
+    architecture3 = [a3_dense, a3_act, a3_loss]
     
-    layers = architecture2
+    
+    layers = architecture3
     
     ## --------------------------------------- init network -----------------------------------------------------
     
@@ -53,11 +58,11 @@ if __name__ == '__main__':
     testInput = []
     testTarget= []
     
-    for t in x_train[0:200]: 
+    for t in x_train[0:2000]: 
         inputList.append(t.flatten())
 
     targetList = [] 
-    for t in y_train[0:200]: 
+    for t in y_train[0:2000]: 
         tar = np.zeros((10,1))
         tar[t] = 1 
         targetList.append(tar.flatten())
@@ -75,7 +80,7 @@ if __name__ == '__main__':
     
     
     
-    nn = trainer.optimize(nn,inputList,targetList,epochs=500, lr=0.05)
+    nn = trainer.optimize(nn,inputList,targetList,epochs=200, lr=0.1)
     
     
     
