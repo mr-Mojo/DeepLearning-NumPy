@@ -32,7 +32,7 @@ if __name__ == '__main__':
     architecture1 = [fc1, act1, fc2, act2, fc3, out1, loss]
     
     dense1 = layer_utils.FullyConnectedLayer(np.zeros((784,32)), np.zeros((32,)), (784,), (32,), random_weights=True)
-    activ1 = layer_utils.SigmoidLayer()
+    activ1 = layer_utils.TanhLayer()
     dense2 = layer_utils.FullyConnectedLayer(np.zeros((32,10)), np.zeros((10,)), (32,), (10,), random_weights=True)
     dense3 = layer_utils.SoftmaxLayer()
     lossfc = layer_utils.CrossEntropy_LossLayer()
@@ -58,11 +58,13 @@ if __name__ == '__main__':
     testInput = []
     testTarget= []
     
-    for t in x_train[0:2000]: 
+    n = 5000
+    
+    for t in x_train[0:n]: 
         inputList.append(t.flatten())
 
     targetList = [] 
-    for t in y_train[0:2000]: 
+    for t in y_train[0:n]: 
         tar = np.zeros((10,1))
         tar[t] = 1 
         targetList.append(tar.flatten())
@@ -78,12 +80,26 @@ if __name__ == '__main__':
     ## --------------------------------------- train the nn -----------------------------------------------------
     
     
+    nn = trainer.optimize(nn,inputList,targetList,epochs=100, lr=0.01)
     
     
-    nn = trainer.optimize(nn,inputList,targetList,epochs=200, lr=0.1)
-    #when using arch3, lr=0.1 
-    #when using relu with n = 2000 use lr = 0.001 
     
+    ## --------------------------------------- annotations -----------------------------------------------------
+    
+    #25.06.2019, 09:30 Uhr: 
+    #avg. time for n = 20000: 4.2  s  
+    #avg. time for n = 60000: 17.5 s
+    
+    
+    
+    #when using arch3, lr=0.1 for all n 
+    #when using relu with n = 2000 use lr = 0.005
+    #when using with tanh n = 200 use lr=0.01 epochs 2000 
+    #when using with sigm n = 200 use lr=0.01 epochs 2000 
+    
+    #when using with mse and tanh e=1000, lr=0.1, n=100 
+    
+    ## --------------------------------------- eval/plot results -----------------------------------------------------
     
     show_results = True
     test_network = True
@@ -98,7 +114,7 @@ if __name__ == '__main__':
             prediction = np.argmax(res[j].elements)
             
             print("\nprediction for the following image: {}\nlabel for the following image: {}".format(prediction, mnist_label))
-            print(res[j])
+            #print(res[j])
             plt.imshow(np.reshape(inputList[j],(28,28)))
             plt.show()
     

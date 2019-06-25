@@ -72,7 +72,7 @@ class SoftmaxLayer(AbstractActivationLayer):
         
     #does the same thing as the jacobian 
     ##outTensors[k].deltas = inTensors[k].deltas @ self.softmax_derivative(self.invalues[k].elements) 
-    def backward(self, outTensors: list, inTensors: list): 
+    def backward(self, outTensors: list, inTensors: list, update): 
         for k in range(len(self.invalues)):
 # =============================================================================
 #             outTensors[k].elements = [t for t in inTensors[k].elements]
@@ -113,7 +113,7 @@ class ReluLayer(AbstractActivationLayer):
                 else: outTensors[i].elements[j] = 0
                 
     #d/dx Relu = 0 if x < 0, 1 else 
-    def backward(self, outTensors: list, inTensors: list): 
+    def backward(self, outTensors: list, inTensors: list, update): 
         for i in range(len(inTensors)): 
             relu_deriv = np.zeros((len(self.invalues[i].elements),))
             for j in range(len(self.invalues[i].elements)): 
@@ -124,7 +124,6 @@ class ReluLayer(AbstractActivationLayer):
     def __str__(self):
         return "ReLu Activation Layer"
 
-#TODO: tanh sometimes gets "stuck" in local minimum, easier than the others
 class TanhLayer(AbstractActivationLayer): 
     
     def forward(self, inTensors: list, outTensors: list): 
@@ -136,7 +135,7 @@ class TanhLayer(AbstractActivationLayer):
             y = np.tanh(inTensors[i].elements)
             outTensors[i] = Tensor(y,np.shape(y))
     
-    def backward(self, outTensors: list, inTensors: list): 
+    def backward(self, outTensors: list, inTensors: list, update): 
         for i in range(len(self.invalues)): 
             outTensors[i].elements = np.ones(np.shape(self.invalues[0].elements))  # only helper for dimensions, elements not needed 
             k = np.tanh(self.invalues[i].elements)**2
@@ -147,39 +146,38 @@ class TanhLayer(AbstractActivationLayer):
             outTensors[i].deltas = t1*inTensors[i].deltas
 
     def __str__(self):
-        return "Sigmoid Activation Layer"
+        return "Tanh Activation Layer"
     
 class SigmoidLayer(AbstractActivationLayer): 
-    
-    def __init__(self): 
-        self.invalues = None 
     
     def sigm(self,x): 
         x = np.clip(x,-500, 500)        # to avoid under- or overflow
         return 1.0/(1.0+np.exp(-x))
     
     def forward(self, inTensors: list, outTensors: list): 
-        if self.invalues==None: 
-            self.invalues = [t.elements for t in inTensors]
+        self.invalues = []
+        for t in inTensors: 
+            tensor = Tensor(t.elements, t.shape) 
+            self.invalues.append(tensor)
         for i in range(len(inTensors)): 
-            outTensors[i].elements = self.sigm(inTensors[i].elements) 
+            x = np.reshape(inTensors[i].elements,inTensors[i].shape)
+            y = self.sigm(x)
+            outTensors[i] = Tensor(y,np.shape(y))
     
-    def backward(self, outTensors: list, inTensors: list): 
+    def backward(self, outTensors: list, inTensors: list, update): 
         for i in range(len(inTensors)): 
-#            outTensors[i].elements = np.ones(np.shape(self.invalues[0].elements))  # only helper for dimensions, elements not needed 
-            outTensors[i].elements = np.ones(np.shape(self.invalues[0]))  # only helper for dimensions, elements not needed  
+            outTensors[i].elements = np.ones(np.shape(self.invalues[0].elements))  # only helper for dimensions, elements not needed 
             
-            #t1 = (1-self.sigm(self.invalues[i].elements)) # this goes to zero! 
-            t1 = (1-self.sigm(self.invalues[i])) # this goes to zero! 
+            t1 = (1-self.sigm(self.invalues[i].elements)) # this goes to zero! 
             for k in range(len(t1)): 
                 if t1[k]<0.00005: t1[k]=0.00005
-            #t2 = self.sigm(self.invalues[i].elements)
-            t2 = self.sigm(self.invalues[i])
+            t2 = self.sigm(self.invalues[i].elements)
             outTensors[i].deltas = (t1*t2)*inTensors[i].deltas
             
     def __str__(self): 
         return "Sigmoid Activation Layer"
     
+
     
 # ---------------------- < end activation layers > ----------------------
     
@@ -213,7 +211,7 @@ class FullyConnectedLayer(AbstractLayer):
             outTensors[i] = Tensor(y,np.shape(y))
     
     #inTensors already have their deltas set, outTensors still need them 
-    def backward(self, outTensors: list, inTensors: list): 
+    def backward(self, outTensors: list, inTensors: list, update): 
         self.invalues_bw = []
         for t in inTensors:     #weird copy routine, but otherwise it will always create a reference datatype???
             tensor = Tensor(t.elements, (np.size(t.elements),1), t.deltas)
@@ -221,7 +219,7 @@ class FullyConnectedLayer(AbstractLayer):
         for i in range(len(outTensors)):
             outTensors[i].elements = np.ones(np.shape(self.invalues_fw[0].elements))  #only helper for dimensions, elements not needed 
             outTensors[i].deltas = inTensors[i].deltas @ self.weights.transpose()
-        self.param_update(self.learning_rate)
+        if update: self.param_update(self.learning_rate)
     
     def param_update(self, learning_rate: float):
         #update weights and bias 
@@ -260,7 +258,7 @@ class Flattening_Layer(AbstractLayer):
             newShape = (len(inTensors[i].elements),)
             inTensors[i].shape = newShape 
     
-    def backward(self, outTensors, inTensors): 
+    def backward(self, outTensors, inTensors, update): 
         #inTensors come from a FC-Layer and have shape e.g. (18,) but need (2,3,3)
         
         for i in range(len(outTensors)):
@@ -359,7 +357,6 @@ class Convolution2D_Layer(AbstractLayer) :
             self.kernel_weights[m] = np.rot90(np.rot90(self.kernel_weights[m]))
     
     #flip kernel, so that [x,y,depth,filterCount] becomes [x,y,filterC.,depth]
-    #TODO -> make this ndimensional
     def flip_kernel(self): 
         
         if self.input_shape[0] == 1: 
@@ -412,7 +409,7 @@ class Convolution2D_Layer(AbstractLayer) :
             count = 0
             for x in range(self.filter_depth): 
                 arrs.append(tmp[count] + tmp[count+1])
-                count += self.filter_depth      #TODO: this was 2, is it now really universally applicable? 
+                count += self.filter_depth    
             
             stacked_arrays = np.stack(arrs)
             stacked_arrays = np.clip(stacked_arrays,1e-7,1e7)   #TODO: clip also clips negative values 
@@ -424,9 +421,7 @@ class Convolution2D_Layer(AbstractLayer) :
         
               
                 
-        
-    #bw pass hasn't been tested  - but seems to return the right dimensions
-    def backward(self, outTensors: list, inTensors: list): 
+    def backward(self, outTensors: list, inTensors: list, update): 
         self.outvalues_bw = []
         self.invalues_bw = [] 
         for t in inTensors: 
@@ -445,7 +440,7 @@ class Convolution2D_Layer(AbstractLayer) :
             deltas = inTensors[i].deltas        #some large array, like 12x1 (coming from a 3x4 conv. with [2,2,2,2] kernel)
             delta_shape = (inTensors[i].shape[1],inTensors[i].shape[2])
             
-            
+
             #map respective outputs to inputs, e.g. 18x1 becomes 2x (2x3) 
             respective_deltas = []          
             curr = 0
@@ -510,7 +505,7 @@ class Convolution2D_Layer(AbstractLayer) :
         self.rotate_kernel_180()
         
         
-        self.param_update()
+        if update: self.param_update()
         
         
     
@@ -548,7 +543,7 @@ class Convolution2D_Layer(AbstractLayer) :
                     self.kernel_weights[count] += -self.learning_rate*delta_weights
                     count += 1 
                 
-                    self.bias[k] += -self.learning_rate*np.sum(corresp_deltas[k])
+                self.bias[k] += -self.learning_rate*np.sum(corresp_deltas[k])
                 #self.bias[k] += -self.learning_rate * np.sum(delta_weights)
             if DEBUG: print("bias: {}".format(np.sum(self.bias)))
             
@@ -618,6 +613,7 @@ class CrossEntropy_LossLayer(AbstractActivationLayer):
     
     #backpropagation in cross_entropy: dL/dxi = -target/pred.value (==xi) 
     def backward(self, predictedTensors:list, targetTensors:list): 
+        
         for i in range(len(predictedTensors)): 
             predictedTensors[i].deltas = - targetTensors[i].elements/(predictedTensors[i].elements+1e-9)
         

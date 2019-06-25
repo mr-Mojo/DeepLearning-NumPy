@@ -28,9 +28,9 @@ if __name__ == "__main__":
     #softmax_act    (576,10)    -> (10,)
     #crossent_loss  (10,)       -> (10,) probability 
  
-    conv = Convolution2D_Layer((1,28,28),[5,5,1,2],random_weights=True)
+    conv = Convolution2D_Layer((1,28,28),[10,10,1,2],random_weights=True)
     flat = Flattening_Layer()
-    full = FullyConnectedLayer(np.ones((576,10)),np.zeros((10,)),(576,),(10,),random_weights=True)
+    full = FullyConnectedLayer(np.ones((361,10)),np.zeros((10,)),(361,),(10,),random_weights=True)
     soft = SoftmaxLayer()
     loss = CrossEntropy_LossLayer()
 
@@ -48,14 +48,15 @@ if __name__ == "__main__":
     testInput = []
     testTarget= []
 
+    n = 1000
 
-    for t in x_train[2:50]: 
+    for t in x_train[0:n]: 
         img = t.reshape(1,28,28)
         ten = layer_utils.Tensor(img,img.shape)
         inputList.append(ten)
     
     targetList = [] 
-    for t in y_train[2:50]: 
+    for t in y_train[0:n]: 
         tar = np.zeros((10,1))
         tar[t] = 1 
         ten = layer_utils.Tensor(tar.flatten(), (10,))
@@ -79,9 +80,21 @@ if __name__ == "__main__":
 
     #very sensitive to learning_rate changes, 0.05 is a good value for n = 20, 0.001 for n = 50 but takes >30 epochs 
     
-    nn = trainer.optimize(nn,inputList,targetList,epochs=100, lr=0.001)
+    nn = trainer.optimize(nn,inputList,targetList,epochs=50, lr=0.1)
 
 
+    ## --------------------------------------- annotations -----------------------------------------------------
+    
+    
+    #good param choice: 
+    # n = 50, lr = 0.1, e = 50, kernel = [10,10,1,2]
+    # n = 500 same, but quite slow 
+    
+    #very sensitive to learning_rate changes
+    #0.05 is a good value for n = 20, 0.001 for n = 50 but takes >30 epochs 
+
+    #kernel setting (10,10,1,2) lr 0.01 fc 361
+    
     
     ## --------------------------------------- show the results -----------------------------------------------------
 
@@ -100,18 +113,16 @@ if __name__ == "__main__":
                 prediction = np.argmax(res[j].elements)
                 
                 print("\nprediction for the following image: {}\nlabel for the following image: {}".format(prediction, mnist_label))
-                print(res[j])
+                #print(res[j])
                 plt.imshow(np.reshape(inputList[j].elements,(28,28)))
                 plt.show()
                 
     if test_network: 
         count = 0 
         stopper = 200 
-        res = nn.forward(testInput[0:stopper], testTarget[0:stopper])
-        print(res[0])
-        print(testTarget[0])
-        for i in range(len(res)): 
-            if np.argmax(res[i].elements) == np.argmax(testTarget[i]):
+        res_test = nn.forward(testInput[0:stopper], testTarget[0:stopper])
+        for i in range(len(res_test)): 
+            if np.argmax(res_test[i].elements) == np.argmax(testTarget[i].elements):
                 count += 1 
         
         print("\n ------------------------------------------- \n\nAccuracy on the test set: {0:.2f}%".format(count*100/len(testInput[0:stopper])))
