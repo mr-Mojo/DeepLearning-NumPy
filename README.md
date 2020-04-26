@@ -9,15 +9,15 @@ The framework provides the following layers:
 * **Pre-Processing:** 
   * Input
   * Flattening 
-* **Activation Functions: **
+* **Activation Functions:**
   * Sigmoid 
   * Tanh
   * ReLU
   * Softmax
-* **Processing Layers: **
+* **Processing Layers:**
   * Fully-Connected (FC)
   * Convolution2D 
-* **Loss Layers: **
+* **Loss Layers:**
   * MSE 
   * Crossentropy
 
