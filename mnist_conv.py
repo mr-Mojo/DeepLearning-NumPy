@@ -48,7 +48,7 @@ if __name__ == "__main__":
     testInput = []
     testTarget= []
 
-    n = 1000
+    n = 500
 
     for t in x_train[0:n]: 
         img = t.reshape(1,28,28)

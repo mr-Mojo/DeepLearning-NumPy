@@ -3,19 +3,18 @@ import numpy as np
 from tensor_utils import Tensor 
 import sys 
 
-#backprop in activation layer = derivative(input) * error of output
+# backprop in activation layer = derivative(input) * error of output
 
 DEBUG = False
 
-#inputlayer transforms list of rawdata into tensors 
-class InputLayer(): 
+
+class InputLayer():                                     #inputlayer transforms list of rawdata into tensors
     def forward(self, rawData: list) -> list: 
         tensors = [] 
         for data in rawData: 
             tensors.append(Tensor(data,np.shape(data)))
         
         return tensors
-
 
 
 class AbstractLayer(ABC):     
@@ -34,7 +33,8 @@ class AbstractLayer(ABC):
         """ 
             implements the weight update by using the elements of inTensors and outTensors to calculate the delta_weights 
         """
-        
+
+
 class AbstractActivationLayer(ABC):   
     @abstractmethod
     def forward(self, inTensors: list, outTensors: list):
@@ -43,8 +43,6 @@ class AbstractActivationLayer(ABC):
     @abstractmethod 
     def backward(self, outTensors: list, inTensors: list): 
         pass
-
-
     
 
 class SoftmaxLayer(AbstractActivationLayer): 
@@ -70,11 +68,11 @@ class SoftmaxLayer(AbstractActivationLayer):
         x=self.softmax(Q).reshape(-1,1)
         return (np.diagflat(x) - np.dot(x, x.T))
         
-    #does the same thing as the jacobian 
-    ##outTensors[k].deltas = inTensors[k].deltas @ self.softmax_derivative(self.invalues[k].elements) 
+    # does the same thing as the jacobian
+    # outTensors[k].deltas = inTensors[k].deltas @ self.softmax_derivative(self.invalues[k].elements)
     def backward(self, outTensors: list, inTensors: list, update): 
         for k in range(len(self.invalues)):
-# =============================================================================
+#   =============================================================================
 #             outTensors[k].elements = [t for t in inTensors[k].elements]
 #             
 #             n = len(inTensors[k].elements)
@@ -88,7 +86,7 @@ class SoftmaxLayer(AbstractActivationLayer):
 #                     jacobian[i][j] = outTensors[k].elements[i] * (kronecker - sm_output[j])
 #                 
 #             outTensors[k].deltas = inTensors[k].deltas @ jacobian
-# =============================================================================
+#   =============================================================================
             outTensors[k].deltas = inTensors[k].deltas @ self.softmax_derivative(self.invalues[k]) 
             
     def __str__(self):
@@ -98,7 +96,8 @@ class SoftmaxLayer(AbstractActivationLayer):
     
     
 # ---------------------- < start activation layers > ----------------------
-    
+
+
 class ReluLayer(AbstractActivationLayer): 
     
     def forward(self, inTensors: list, outTensors: list): 
@@ -124,6 +123,7 @@ class ReluLayer(AbstractActivationLayer):
     def __str__(self):
         return "ReLu Activation Layer"
 
+
 class TanhLayer(AbstractActivationLayer): 
     
     def forward(self, inTensors: list, outTensors: list): 
@@ -147,71 +147,80 @@ class TanhLayer(AbstractActivationLayer):
 
     def __str__(self):
         return "Tanh Activation Layer"
-    
+
+
 class SigmoidLayer(AbstractActivationLayer): 
-    
+
     def sigm(self,x): 
-        x = np.clip(x,-500, 500)        # to avoid under- or overflow
+        x = np.clip(x, -500, 500)        # to avoid under- or overflow
         return 1.0/(1.0+np.exp(-x))
     
-    def forward(self, inTensors: list, outTensors: list): 
+    def forward(self, inTensors: list, outTensors: list):
         self.invalues = []
         for t in inTensors: 
             tensor = Tensor(t.elements, t.shape) 
             self.invalues.append(tensor)
         for i in range(len(inTensors)): 
-            x = np.reshape(inTensors[i].elements,inTensors[i].shape)
+            x = np.reshape(inTensors[i].elements, inTensors[i].shape)
             y = self.sigm(x)
-            outTensors[i] = Tensor(y,np.shape(y))
+            outTensors[i] = Tensor(y, y.shape)
     
-    def backward(self, outTensors: list, inTensors: list, update): 
+    def backward(self, outTensors: list, inTensors: list, update):      # TODO: SIGM Backprop somewhat buggy
         for i in range(len(inTensors)): 
             outTensors[i].elements = np.ones(np.shape(self.invalues[0].elements))  # only helper for dimensions, elements not needed 
-            
-            t1 = (1-self.sigm(self.invalues[i].elements)) # this goes to zero! 
-            for k in range(len(t1)): 
-                if t1[k]<0.00005: t1[k]=0.00005
-            t2 = self.sigm(self.invalues[i].elements)
-            outTensors[i].deltas = (t1*t2)*inTensors[i].deltas
+
+            deriv_input = self.sigm(self.invalues[i].elements)*(1.0-self.sigm(self.invalues[i].elements))
+            outTensors[i].deltas = deriv_input*inTensors[i].deltas
+
+            #print(self.invalues[i].elements)
+            t1 = (1.0-self.sigm(self.invalues[i].elements)) # this goes to 1, i.e. the 2nd term goes to 0,
+            # i.e. self.invalues[i].elements -> great values
+
+            #print(t1)
+            #for k in range(len(t1)):
+            #    if t1[k]<0.00005: t1[k]=0.00005
+            #t2 = self.sigm(self.invalues[i].elements)
+            #outTensors[i].deltas = (t1*t2)*inTensors[i].deltas
             
     def __str__(self): 
         return "Sigmoid Activation Layer"
     
 
-    
-# ---------------------- < end activation layers > ----------------------
-    
 # ---------------------- < start fullyConnected layer > ----------------------
-    
-class FullyConnectedLayer(AbstractLayer): 
-    
-    def __init__(self, weights: np.array, bias: np.array, inshape: tuple, outshape: tuple, random_weights=True): 
-        if random_weights == True: 
+
+
+class FullyConnectedLayer(AbstractLayer):
+
+    def __init__(self, weights: np.array, bias: np.array, inshape: tuple, outshape: tuple, random_weights=True):
+        if random_weights == True:
             #draw weights from a normal distribution with mean 0 and sigma 0.1
             self.weights = np.random.normal(0,0.001,weights.shape[0]*weights.shape[1]).reshape(weights.shape[0],weights.shape[1])
 
-        else: 
+        else:
             self.weights = weights
-            
-        self.bias = bias 
-        self.inshape = inshape 
-        self.outshape = outshape 
+
+        self.bias = bias
+        self.inshape = inshape
+        self.outshape = outshape
         self.delta_weights = np.zeros(weights.shape)
         self.delta_bias = np.zeros(bias.shape)
         self.learning_rate = 0.5
-        self.invalues_fw = None 
-        
-    #y = X*W + b 
-    def forward(self, inTensors: list, outTensors: list): 
-        if self.invalues_fw == None: 
+        self.invalues_fw = None
+
+        self.prev_dW = None
+        self.prev_error = None
+
+    #y = X*W + b
+    def forward(self, inTensors: list, outTensors: list):
+        if self.invalues_fw == None:
             self.invalues_fw = [t for t in inTensors]   #copy routine is legitimate
         for i in range(len(inTensors)):
             x = np.reshape(inTensors[i].elements,inTensors[i].shape)
-            y =  x @ self.weights + self.bias
-            outTensors[i] = Tensor(y,np.shape(y))
-    
+            y = x @ self.weights + self.bias
+            outTensors[i] = Tensor(y, y.shape)
+
     #inTensors already have their deltas set, outTensors still need them 
-    def backward(self, outTensors: list, inTensors: list, update): 
+    def backward(self, outTensors: list, inTensors: list, update, quickProp=False):
         self.invalues_bw = []
         for t in inTensors:     #weird copy routine, but otherwise it will always create a reference datatype???
             tensor = Tensor(t.elements, (np.size(t.elements),1), t.deltas)
@@ -219,24 +228,52 @@ class FullyConnectedLayer(AbstractLayer):
         for i in range(len(outTensors)):
             outTensors[i].elements = np.ones(np.shape(self.invalues_fw[0].elements))  #only helper for dimensions, elements not needed 
             outTensors[i].deltas = inTensors[i].deltas @ self.weights.transpose()
-        if update: self.param_update(self.learning_rate)
-    
-    def param_update(self, learning_rate: float):
+        if update: self.param_update(quickProp)
+
+    def param_update(self, use_quickProp=False):
+
+        # for quickprop 1st iteration, when t=0 and t-1 can thus not be accessed
+        if self.prev_error is None and use_quickProp:
+            self.prev_error = [np.zeros(self.invalues_bw[0].deltas.shape)+1e-5 for x in self.invalues_bw]    # prev error per tensor!
+            self.prev_dW = [np.random.normal(0, 0.001, np.size(self.weights)).reshape(self.weights.shape) for x in self.invalues_bw]    # prev dW per tensor!
+            self.mu = 1.75
+
         #update weights and bias 
         in_dim = self.weights.shape[0]
         out_dim = self.weights.shape[1]
-        
+
         for i in range(len(self.invalues_fw)):
-            layer_input = self.invalues_fw[i].elements.reshape((1,in_dim))
-            dLdW = layer_input.T @ self.invalues_bw[i].deltas.reshape((1,out_dim))
-            dLbias = self.invalues_bw[i].deltas 
-        
-            self.weights = self.weights - learning_rate*dLdW 
-            self.bias = self.bias - learning_rate*dLbias
+            layer_input = self.invalues_fw[i].elements.reshape((1, in_dim))
+            error = self.invalues_bw[i].deltas      # dE/dwij
+
+            if use_quickProp:
+
+                error_term = error / (self.prev_error[i]-error) #denominator if sum(denominator) != 0 else error / denominator+1e-5
+                deltaW_prev = self.prev_dW[i]
+
+                dLdW = error_term * deltaW_prev
+                dLbias = error
+
+                self.prev_dW[i] = dLdW.copy()
+                self.prev_error[i] = error.copy()
+
+            else:
+                dLdW = layer_input.T @ self.invalues_bw[i].deltas.reshape((1, out_dim))     # input.T @ deltas
+                dLbias = self.invalues_bw[i].deltas
+
+            if use_quickProp:
+                self.weights = self.weights - dLdW
+                self.bias = self.bias - dLbias
+            else:
+                self.weights = self.weights - self.learning_rate*dLdW
+                self.bias = self.bias - self.learning_rate*dLbias
             #self.delta_weights +=  dLdW
             #self.delta_bias += dLbias
-        
-    def __str__(self): 
+
+    def set_lr(self, new_lr):
+        self.learning_rate = new_lr
+
+    def __str__(self):
         return "FullyConnected Layer"
           
 # ---------------------- < end fullyConnected layer > ----------------------    

@@ -13,11 +13,10 @@ class NeuronalNetwork():
             self.hasInputLayer = True 
         else: 
             self.hasInputLayer = False
-        
-        
-        self.layers =       layerList               #list<Layer> 
-        self.parameters =   parameterList           #list<weights,biases>
-        self.deltaParams =  deltaparameterList      #list<deltaweights,deltabiases>
+
+        self.layers = layerList                     #list<Layer>
+        self.parameters = parameterList             #list<weights,biases>
+        self.deltaParams = deltaparameterList       #list<deltaweights,deltabiases>
         
         self.in_tensors = None
         self.out_tensors = None
@@ -31,18 +30,16 @@ class NeuronalNetwork():
             print("ERROR - only numpyArrays can be handled by input layer")
             return
         
-        
-        #input layer: 
+        # input layer:
         if self.hasInputLayer: 
             inTensors = self.inputLayer.forward(data)
         else: 
             inTensors = data.copy()
         
-        #all layers but the last: 
+        # all layers but the last:
         for layer in self.layers[:-1]: layer.forward(inTensors, inTensors)
         
-        
-        loss_layer = self.layers[-1] 
+        loss_layer = self.layers[-1]
         outTensors = inTensors.copy()
         
         #loss_layer 
@@ -50,15 +47,17 @@ class NeuronalNetwork():
         
         return outTensors  
 
-    
-    
-    def backprop(self,predictedTensors,targetTensors,update): 
+
+    def backprop(self,predictedTensors,targetTensors,update, do_quickProp=False):
         
         loss_layer = self.layers[-1] 
         loss_layer.backward(predictedTensors, targetTensors)
         
         for i in range(len(self.layers)-2,-1,-1):   #from second last list element to 0th element 
-            self.layers[i].backward(predictedTensors, predictedTensors,update)
+            if do_quickProp and isinstance(self.layers[i], layer_utils.FullyConnectedLayer):
+                self.layers[i].backward(predictedTensors, predictedTensors, update, quickProp=do_quickProp)
+            else:
+                self.layers[i].backward(predictedTensors, predictedTensors, update)
         
         return predictedTensors         #return useless, just debug 
     
@@ -81,7 +80,8 @@ class SGDTrainer():
         self.update_mechanism = update_mechanism    # currently only vanilla GD is implemented 
         
         
-    def optimize(self, network : NeuronalNetwork, data: list, labels: list, epochs=50, lr=0.5, early_stopping=True, batchsize=64):
+    def optimize(self, network : NeuronalNetwork, data: list, labels: list, epochs=50, lr=0.5, early_stopping=True,
+                 batchsize=64, use_quickProp=False):
         self.learning_rate = lr 
         early_stopping_treshold = 0.00000005
         
@@ -100,30 +100,28 @@ class SGDTrainer():
         
         isOne = True
         isTwo = False
-        time_execution = True
+        time_execution = False
         
         for i in range(epochs): 
             
             if time_execution: start_time = time.time()
             
-            
             res = network.forward(data,targetTensors)
             loss = sum([t.loss for t in res])/len(res)
-            
             
             acc = 0
             for t in range(len(res)): 
                 if np.argmax(res[t].elements) == np.argmax(targetTensors[t].elements):
-                    if res[t].elements[np.argmax(res[t].elements)] > 0.8: acc+=1
+                    # if res[t].elements[np.argmax(res[t].elements)] > 0.8: acc+=1
+                    acc += 1
         
-            
-            print("mean loss at epoch {0}: {1:.5f} -- Acc: {2:.2f}%".format(i+1,loss,acc*100/len(res)))
-            
-           
-            
-            network.backprop(res,targetTensors,update=True)
-            
-           
+            print("mean loss at epoch {0}: {1:.5f} -- Acc: {2:.2f}%".format(i+1, loss, acc*100/len(res)))
+
+            if use_quickProp:
+                network.backprop(res,targetTensors,update=True, do_quickProp=True)
+            else:
+                network.backprop(res,targetTensors,update=True)
+
             if early_stopping: 
                 if loss < early_stopping_treshold:
                     return network
@@ -132,8 +130,95 @@ class SGDTrainer():
 
         return network  #return ununsed, just for debug 
 
-    
-    
+    # def optimize_quickprop(self, network: NeuronalNetwork, data: list, labels: list, epochs=50, lr=0.5, early_stopping=True,
+    #              batchsize=64):
+    #     self.learning_rate = lr
+    #     early_stopping_treshold = 0.00000005
+    #
+    #     # ------------------ sanity checks ------------------------------
+    #     if not isinstance(labels[0], tensor_utils.Tensor):
+    #         targetTensors = network.inputLayer.forward(labels)
+    #     else:
+    #         targetTensors = labels
+    #
+    #     if not len(data) == len(labels): print("ERROR - DATA AND LABELS DIFFER IN SIZE")
+    #     # ----------------- /sanity checks ------------------------------
+    #
+    #     for l in network.layers:
+    #         if isinstance(l, layer_utils.FullyConnectedLayer) or isinstance(l, layer_utils.Convolution2D_Layer):
+    #             l.learning_rate = self.learning_rate
+    #
+    #     isOne = True
+    #     isTwo = False
+    #     time_execution = False
+    #
+    #     for i in range(epochs):
+    #
+    #         if time_execution: start_time = time.time()
+    #
+    #         res = network.forward(data, targetTensors)
+    #         loss = sum([t.loss for t in res]) / len(res)
+    #
+    #         acc = 0
+    #         for t in range(len(res)):
+    #             if np.argmax(res[t].elements) == np.argmax(targetTensors[t].elements):
+    #                 # if res[t].elements[np.argmax(res[t].elements)] > 0.8: acc+=1
+    #                 acc += 1
+    #
+    #         print("mean loss at epoch {0}: {1:.5f} -- Acc: {2:.2f}%".format(i + 1, loss, acc * 100 / len(res)))
+    #
+    #         network.backprop(res, targetTensors, update=True, do_quickProp=True)
+    #
+    #         if early_stopping:
+    #             if loss < early_stopping_treshold:
+    #                 return network
+    #
+    #         if time_execution: print("time per epoch: {0:.3f}s".format(time.time() - start_time))
+    #
+    #     return network  # return ununsed, just for debug
+
+    def optimize_for_gui(self, network: NeuronalNetwork, data: list, labels: list, epochs=50, lr=0.5):
+        self.learning_rate = lr
+
+        # ------------------ sanity checks ------------------------------
+        if not isinstance(labels[0], tensor_utils.Tensor):
+            targetTensors = network.inputLayer.forward(labels)
+        else:
+            targetTensors = labels
+
+        if not len(data) == len(labels): print("ERROR - DATA AND LABELS DIFFER IN SIZE")
+        # ----------------- /sanity checks ------------------------------
+
+        for l in network.layers:
+            if isinstance(l, layer_utils.FullyConnectedLayer) or isinstance(l, layer_utils.Convolution2D_Layer):
+                l.learning_rate = self.learning_rate
+
+        time_execution = False
+
+        for i in range(epochs):
+            if time_execution: start_time = time.time()
+
+            res = network.forward(data, targetTensors)
+            loss = sum([t.loss for t in res]) / len(res)
+
+            acc = 0
+            for t in range(len(res)):
+                if np.argmax(res[t].elements) == np.argmax(targetTensors[t].elements):
+                    acc += 1
+
+            #print("mean loss at epoch {0}: {1:.5f} -- Acc: {2:.2f}%".format(i + 1, loss, acc * 100 / len(res)))
+
+            network.backprop(res, targetTensors, update=True)
+
+            if time_execution: print("time per epoch: {0:.3f}s".format(time.time() - start_time))
+
+            #for l in network.layers:
+            #    if isinstance(l, layer_utils.FullyConnectedLayer):
+            #        print(l.learning_rate)
+
+            accuracy = acc*100.0/len(res)
+            yield (loss, accuracy)
+
 # =============================================================================
 #      # learning rate boost
 #      if i % 21 == 0 and isOne and i > 20: 

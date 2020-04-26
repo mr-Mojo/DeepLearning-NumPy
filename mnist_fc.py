@@ -21,7 +21,8 @@ if __name__ == '__main__':
     ## --------------------------------------- init layers -----------------------------------------------------
     
     in_layer = layer_utils.InputLayer()
-    
+
+    # not working yet, probably gradient problems somewhere
     fc1 = layer_utils.FullyConnectedLayer(np.zeros((784,64)), np.zeros((64,)), (784,), (64,), random_weights=True)
     act1= layer_utils.SigmoidLayer()
     fc2 = layer_utils.FullyConnectedLayer(np.zeros((64,32)), np.zeros((32,)), (64,), (32,), random_weights=True)
@@ -30,22 +31,27 @@ if __name__ == '__main__':
     out1= layer_utils.SoftmaxLayer()
     loss= layer_utils.CrossEntropy_LossLayer()
     architecture1 = [fc1, act1, fc2, act2, fc3, out1, loss]
-    
-    dense1 = layer_utils.FullyConnectedLayer(np.zeros((784,32)), np.zeros((32,)), (784,), (32,), random_weights=True)
-    activ1 = layer_utils.TanhLayer()
-    dense2 = layer_utils.FullyConnectedLayer(np.zeros((32,10)), np.zeros((10,)), (32,), (10,), random_weights=True)
+
+    # works with RELU and Tanh
+    # --> SIGM must be buggy!
+    dense1 = layer_utils.FullyConnectedLayer(np.zeros((784, 32)), np.zeros((32,)), (784,), (32,), random_weights=True)
+    activ1_t = layer_utils.TanhLayer()
+    activ_1_relu = layer_utils.ReluLayer()
+    dense2 = layer_utils.FullyConnectedLayer(np.zeros((32, 10)), np.zeros((10,)), (32,), (10,), random_weights=True)
     dense3 = layer_utils.SoftmaxLayer()
     lossfc = layer_utils.CrossEntropy_LossLayer()
-    architecture2 = [dense1, activ1, dense2, dense3, lossfc]
-    
-    
-    a3_dense = layer_utils.FullyConnectedLayer(np.zeros((784,10)), np.zeros((10,)), (784,), (10,), random_weights=True)
+    lossmse = layer_utils.MSE_LossLayer()
+    architecture_crossentr = [dense1, activ_1_relu, dense2, dense3, lossfc]
+    architecture_mse = [dense1, activ1_t, dense2, dense3, lossmse]
+
+    a3_dense1 = layer_utils.FullyConnectedLayer(np.zeros((784, 10)), np.zeros((10,)), (784,), (10,), random_weights=True)
     a3_act = layer_utils.SoftmaxLayer()
     a3_loss = layer_utils.CrossEntropy_LossLayer()
-    architecture3 = [a3_dense, a3_act, a3_loss]
-    
-    
-    layers = architecture3
+    architecture3 = [a3_dense1, a3_act, a3_loss]
+
+    layers = architecture_mse
+
+    # also works really well with Tanh and MSE, lr = 0.1
     
     ## --------------------------------------- init network -----------------------------------------------------
     
@@ -58,7 +64,7 @@ if __name__ == '__main__':
     testInput = []
     testTarget= []
     
-    n = 5000
+    n = 500
     
     for t in x_train[0:n]: 
         inputList.append(t.flatten())
@@ -78,20 +84,23 @@ if __name__ == '__main__':
         testTarget.append(tar.flatten())
 
     ## --------------------------------------- train the nn -----------------------------------------------------
-    
-    
-    nn = trainer.optimize(nn,inputList,targetList,epochs=100, lr=0.01)
-    
-    
-    
+
+    nn = trainer.optimize(nn,inputList,targetList,epochs=300, lr=0.08, use_quickProp=False)
+
+    # so könnte man es faken, zuerst mit hoher lr laufen lassen, danach weights kopieren und mit kleinerer weitermachen
+    # nn = trainer.optimize(nn, inputList, targetList, epochs=30, lr=0.08, use_quickProp=False)
+    # nn2 = network_utils.NeuronalNetwork(in_layer, layers, [], [])
+    # for idx, layer in enumerate(nn.layers):
+    #     nn2.layers[idx] = layer
+    # nn2 = trainer.optimize(nn2,inputList,targetList,epochs=300, lr=0.03, use_quickProp=False)
+    # nn = trainer.optimize_quickprop(nn,inputList,targetList,epochs=100, lr=0.01)
+
     ## --------------------------------------- annotations -----------------------------------------------------
     
     #25.06.2019, 09:30 Uhr: 
     #avg. time for n = 20000: 4.2  s  
     #avg. time for n = 60000: 17.5 s
-    
-    
-    
+
     #when using arch3, lr=0.1 for all n 
     #when using relu with n = 2000 use lr = 0.005
     #when using with tanh n = 200 use lr=0.01 epochs 2000 
