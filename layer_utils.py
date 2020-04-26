@@ -664,36 +664,3 @@ class CrossEntropy_LossLayer(AbstractActivationLayer):
 
 
 
-
-if __name__ == "__main__": 
-    pass
-    
-# =============================================================================
-#     
-#     #Beispiel von Markus Folien:     
-#
-#     in_layer = InputLayer()
-#     fc_1 = FullyConnectedLayer(np.array(([-0.5057, 0.3987,-0.8943],
-#                                          [ 0.3356, 0.1673, 0.8321],
-#                                          [-0.3485,-0.4597,-0.1121])), np.zeros((3,)),(3,),(3,),random_weights=False)
-#     sigm = SigmoidLayer()
-#     fc_2 = FullyConnectedLayer(np.array(([ 0.4047, 0.9563],
-#                                          [-0.8192,-0.1274],
-#                                          [ 0.3662,-0.7252])),np.zeros((2,)),(3,),(2,),random_weights=False)
-#     out  = SoftmaxLayer() 
-#     loss = CrossEntropy_LossLayer()
-#     
-#     inputTensor  = [Tensor(np.array(([0.4183, 0.5209, 0.0291])), (3,))]
-#     targetTensor = [Tensor(np.array(([0.7095,0.0942])), (2,))]
-#     
-#     fc_1.forward(inputTensor,inputTensor)
-#     sigm.forward(inputTensor,inputTensor)
-#     fc_2.forward(inputTensor,inputTensor)
-#     out.forward(inputTensor,inputTensor)
-#     loss.forward(inputTensor,inputTensor,targetTensor)
-#     
-#     predictedTensors = loss.backward(inputTensor,targetTensor)
-#     
-#     out.backward(predictedTensors, predictedTensors)
-# =============================================================================
-    
