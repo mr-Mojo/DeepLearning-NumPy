@@ -2,6 +2,7 @@ import numpy as np
 from typing import * 
 import sys
 
+
 class Shape():     
 
     def __init__(self, dim): 
