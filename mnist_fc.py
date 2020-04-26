@@ -33,7 +33,7 @@ if __name__ == '__main__':
     architecture1 = [fc1, act1, fc2, act2, fc3, out1, loss]
 
     # works with RELU and Tanh
-    # --> SIGM must be buggy!
+    # re-do sigm backprop
     dense1 = layer_utils.FullyConnectedLayer(np.zeros((784, 32)), np.zeros((32,)), (784,), (32,), random_weights=True)
     activ1_t = layer_utils.TanhLayer()
     activ_1_relu = layer_utils.ReluLayer()
@@ -87,17 +87,9 @@ if __name__ == '__main__':
 
     nn = trainer.optimize(nn,inputList,targetList,epochs=300, lr=0.08, use_quickProp=False)
 
-    # so könnte man es faken, zuerst mit hoher lr laufen lassen, danach weights kopieren und mit kleinerer weitermachen
-    # nn = trainer.optimize(nn, inputList, targetList, epochs=30, lr=0.08, use_quickProp=False)
-    # nn2 = network_utils.NeuronalNetwork(in_layer, layers, [], [])
-    # for idx, layer in enumerate(nn.layers):
-    #     nn2.layers[idx] = layer
-    # nn2 = trainer.optimize(nn2,inputList,targetList,epochs=300, lr=0.03, use_quickProp=False)
-    # nn = trainer.optimize_quickprop(nn,inputList,targetList,epochs=100, lr=0.01)
-
     ## --------------------------------------- annotations -----------------------------------------------------
     
-    #25.06.2019, 09:30 Uhr: 
+    #25.03.2020, 09:30 Uhr: 
     #avg. time for n = 20000: 4.2  s  
     #avg. time for n = 60000: 17.5 s
 
@@ -108,6 +100,8 @@ if __name__ == '__main__':
     
     #when using with mse and tanh e=1000, lr=0.1, n=100 
     
+    #TODO for speedup: copy routine in forward layers 
+	
     ## --------------------------------------- eval/plot results -----------------------------------------------------
     
     show_results = True
